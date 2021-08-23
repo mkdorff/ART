@@ -1,0 +1,14 @@
+{
+  "name": "art",
+  "version": "1.0.0",
+  "description": "try making art sometimes",
+  "main": "public/index.html",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "mkdorff",
+  "license": "ISC",
+  "dependencies": {
+    "prettier": "^2.3.2"
+  }
+}
