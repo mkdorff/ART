@@ -1,6 +1,6 @@
 // External params
-const newx = Math.floor(1680 / 8);
-const newy = Math.floor(913 / 8);
+const newx = Math.floor(1680 / 6);
+const newy = Math.floor(913 / 6);
 const _resolution = {x: newx, y: newy};
 Canvas.height = newy;
 Canvas.width = newx;
@@ -8,24 +8,44 @@ Canvas.width = newx;
 // Runtime params
 const c_origin = {x: 0, y: 0, z: 0};
 const b_viewport = {x: {min: -1.84, max: 1.84}, y: {min: -1, max: 1}}; // lol aspect shit here
-const v_origin_viewport = {x: 0, y: 0, z: 0.4}; // affects FOV
+const v_origin_viewport = {x: 0, y: 0, z: 1.5}; // affects FOV
+const rotates = [
+  {x: 0, y: 0, z: 1.5},
+  {x: 1.5, y: 0, z: 0},
+  {x: 0, y: 0, z: -1.5},
+  {x: -1.5, y: 0, z: 0},
+];
 const background = {r: 45, g: 45, b: 55, a: 255};
 
 // Data
-const objects = [{type: 'grid', axis: {x: true, y: true, z: true}}];
+const objects = [
+  {type: 'sphere', center: {x: 0, y: -1, z: 3}, radius: 1, color: {r: 255, g: 0, b: 0, a: 255}, specular: 500},
+  {type: 'sphere', center: {x: 2, y: 0, z: 4}, radius: 1, color: {r: 0, g: 0, b: 255, a: 255}, specular: 500},
+  {type: 'sphere', center: {x: -2, y: 0, z: 4}, radius: 1, color: {r: 0, g: 255, b: 0, a: 255}, specular: 10},
+  {type: 'sphere', center: {x: 0, y: -5001, z: 0}, radius: 5000, color: {r: 255, g: 255, b: 0, a: 255}, specular: 1000},
+];
+const lights = [
+  {type: 'ambient', intensity: 0.2},
+  {type: 'point', intensity: 0.6, position: {x: 2, y: 1, z: 0}},
+  {type: 'directional', intensity: 0.2, direction: {x: 1, y: 4, z: 4}},
+];
+
 const _ = x => Math.floor(Math.random() * x);
 [...Array(20)].forEach(() => {
   objects.push({
     type: 'sphere',
-    center: {x: _(20), y: _(20), z: _(20)},
+    center: {x: _(20) - 10, y: _(20) - 10, z: _(20) - 10},
     radius: _(5),
     color: {r: _(255), g: _(255), b: _(255), a: 255},
+    specular: _(1000),
   });
 });
 
 const dotProduct = ({x: x0, y: y0, z: z0 = 0}, {x, y, z = 0}) => x0 * x + y0 * y + z0 * z;
 const add = ({x: x0, y: y0, z: z0 = 0}, {x, y, z = 0}) => ({x: x0 + x, y: y0 + y, z: z0 + z});
 const subtract = ({x: x0, y: y0, z: z0 = 0}, {x, y, z = 0}) => ({x: x0 - x, y: y0 - y, z: z0 - z});
+const scalar = (scale, {x, y, z = 0}) => ({x: scale * x, y: scale * y, z: scale * z});
+const length = v => Math.sqrt(dotProduct(v, v));
 
 const intersectSphere = (origin, direction, sphere) => {
   const v_origin_sphere_center = subtract(origin, sphere.center);
@@ -40,8 +60,35 @@ const intersectSphere = (origin, direction, sphere) => {
   return [(-k2 + sqrtDscrmnt) / (2 * k1), (-k2 - sqrtDscrmnt) / (2 * k1)];
 };
 
+const computeLighting = (surfacePoint, normalizedSurfaceVector, toCameraVector, specular) => {
+  let intensity = 0;
+  lights.forEach(light => {
+    if (light.type === 'ambient') {
+      intensity += light.intensity;
+      return;
+    }
+
+    const v_light = light.type === 'point' ? subtract(light.position, surfacePoint) : light.direction;
+    const angularIntensity = dotProduct(normalizedSurfaceVector, v_light);
+    if (angularIntensity > 0) {
+      intensity += (light.intensity * angularIntensity) / (length(normalizedSurfaceVector) * length(v_light));
+    }
+
+    if (specular > 0) {
+      const R = subtract(scalar(2 * dotProduct(normalizedSurfaceVector, v_light), normalizedSurfaceVector), v_light);
+      const R_dot_V = dotProduct(R, toCameraVector);
+
+      if (R_dot_V > 0) {
+        intensity += light.intensity * Math.pow(R_dot_V / (length(R) * length(toCameraVector)), specular);
+      }
+    }
+  });
+
+  return intensity > 1 ? 1 : intensity;
+};
+
 const backtrace = (origin, direction, min_t, max_t) => {
-  const {closest_object} = objects.reduce(
+  const {closest_t, closest_object} = objects.reduce(
     ({closest_t, closest_object}, object) => {
       // The API being return Infinity for no collision
       let t0, t1;
@@ -69,7 +116,19 @@ const backtrace = (origin, direction, min_t, max_t) => {
     {closest_t: Infinity, closest_object: null}
   );
 
-  return (closest_object && closest_object.color) || {...background};
+  if (!closest_object) return {...background};
+
+  const surfacePoint = scalar(closest_t, direction);
+  const normalSurfaceVector = subtract(surfacePoint, closest_object.center);
+  const normalizedSurfaceVector = scalar(1 / length(normalSurfaceVector), normalSurfaceVector);
+
+  const lightingScalar = computeLighting(
+    surfacePoint,
+    normalizedSurfaceVector,
+    subtract({x: 0, y: 0, z: 0}, direction),
+    closest_object.specular
+  );
+  return {...closest_object.color, a: closest_object.color.a * lightingScalar};
 };
 
 const snapshot = (resolution = _resolution) => {
@@ -132,14 +191,43 @@ window.addEventListener('keydown', e => {
       c_origin.y = c_origin.y - movement;
       paint();
       break;
-    // case 'ArrowLeft':
-    //   v_origin_viewport.x = v_origin_viewport.x + 
-    //   v_origin_viewport.z = v_origin_viewport.x * sin + v_origin_viewport.z * cos;
-    //   paint();
-    //   break;
-    // case 'ArrowRight':
-    //   paint();
-    //   break;
+    case 'ArrowRight':
+      {
+        const foundIndex = rotates.findIndex(
+          ({x, y, z}) => v_origin_viewport.x === x && v_origin_viewport.y === y && v_origin_viewport.z === z
+        );
+
+        if (foundIndex + 1 === rotates.length) {
+          v_origin_viewport.x = rotates[0].x;
+          v_origin_viewport.y = rotates[0].y;
+          v_origin_viewport.z = rotates[0].z;
+        } else {
+          v_origin_viewport.x = rotates[foundIndex + 1].x;
+          v_origin_viewport.y = rotates[foundIndex + 1].y;
+          v_origin_viewport.z = rotates[foundIndex + 1].z;
+        }
+      }
+      paint();
+      break;
+    case 'ArrowLeft':
+      {
+        const foundIndex = rotates.findIndex(
+          ({x, y, z}) => v_origin_viewport.x === x && v_origin_viewport.y === y && v_origin_viewport.z === z
+        );
+
+        if (foundIndex === 0) {
+          const lastIndex = rotates.length - 1;
+          v_origin_viewport.x = rotates[lastIndex].x;
+          v_origin_viewport.y = rotates[lastIndex].y;
+          v_origin_viewport.z = rotates[lastIndex].z;
+        } else {
+          v_origin_viewport.x = rotates[foundIndex - 1].x;
+          v_origin_viewport.y = rotates[foundIndex - 1].y;
+          v_origin_viewport.z = rotates[foundIndex - 1].z;
+        }
+      }
+      paint();
+      break;
     default:
       break;
   }
