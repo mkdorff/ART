@@ -1,6 +1,6 @@
 // External params
-const newx = Math.floor(1680 / 5);
-const newy = Math.floor(913 / 5);
+const newx = Math.floor(1680 / 8);
+const newy = Math.floor(913 / 8);
 const _resolution = {x: newx, y: newy};
 Canvas.height = newy;
 Canvas.width = newx;
@@ -8,35 +8,26 @@ Canvas.width = newx;
 // Runtime params
 const c_origin = {x: 0, y: 0, z: 0};
 const b_viewport = {x: {min: -1.84, max: 1.84}, y: {min: -1, max: 1}}; // lol aspect shit here
-const v_origin_viewport = {x: 0, y: 0, z: 1}; // affects FOV
+const v_origin_viewport = {x: 0, y: 0, z: 0.4}; // affects FOV
 const background = {r: 45, g: 45, b: 55, a: 255};
 
 // Data
-const objects = [
-  {
+const objects = [{type: 'grid', axis: {x: true, y: true, z: true}}];
+const _ = x => Math.floor(Math.random() * x);
+[...Array(20)].forEach(() => {
+  objects.push({
     type: 'sphere',
-    center: {x: 0, y: -1, z: 3},
-    radius: 1,
-    color: {r: 255, g: 0, b: 0, a: 255},
-  },
-  {
-    type: 'sphere',
-    center: {x: 2, y: 0, z: 4},
-    radius: 1,
-    color: {r: 0, g: 0, b: 255, a: 255},
-  },
-  {
-    type: 'sphere',
-    center: {x: -2, y: 0, z: 4},
-    radius: 1,
-    color: {r: 0, g: 255, b: 0, a: 255},
-  },
-];
+    center: {x: _(20), y: _(20), z: _(20)},
+    radius: _(5),
+    color: {r: _(255), g: _(255), b: _(255), a: 255},
+  });
+});
 
 const dotProduct = ({x: x0, y: y0, z: z0 = 0}, {x, y, z = 0}) => x0 * x + y0 * y + z0 * z;
 const add = ({x: x0, y: y0, z: z0 = 0}, {x, y, z = 0}) => ({x: x0 + x, y: y0 + y, z: z0 + z});
 const subtract = ({x: x0, y: y0, z: z0 = 0}, {x, y, z = 0}) => ({x: x0 - x, y: y0 - y, z: z0 - z});
-const intersectRaySphere = (origin, direction, sphere) => {
+
+const intersectSphere = (origin, direction, sphere) => {
   const v_origin_sphere_center = subtract(origin, sphere.center);
 
   const k1 = dotProduct(direction, direction);
@@ -50,25 +41,35 @@ const intersectRaySphere = (origin, direction, sphere) => {
 };
 
 const backtrace = (origin, direction, min_t, max_t) => {
-  const {closest_sphere} = objects.reduce(
-    // if type sphere...
-    ({closest_t, closest_sphere}, sphere) => {
-      let [t0, t1] = intersectRaySphere(origin, direction, sphere);
+  const {closest_object} = objects.reduce(
+    ({closest_t, closest_object}, object) => {
+      // The API being return Infinity for no collision
+      let t0, t1;
+      switch (object.type) {
+        case 'grid':
+          // [t0, t1] = intersectGrid(origin, direction, object);
+          break;
+        case 'sphere':
+          [t0, t1] = intersectSphere(origin, direction, object);
+          break;
+        default:
+          break;
+      }
 
       if (t0 < closest_t && min_t < t0 && t0 < max_t) {
         closest_t = t0;
-        closest_sphere = sphere;
+        closest_object = object;
       }
       if (t1 < closest_t && min_t < t1 && t1 < max_t) {
         closest_t = t1;
-        closest_sphere = sphere;
+        closest_object = object;
       }
-      return {closest_t, closest_sphere};
+      return {closest_t, closest_object};
     },
-    {closest_t: Infinity, closest_sphere: null}
+    {closest_t: Infinity, closest_object: null}
   );
 
-  return (closest_sphere && closest_sphere.color) || {...background};
+  return (closest_object && closest_object.color) || {...background};
 };
 
 const snapshot = (resolution = _resolution) => {
@@ -102,7 +103,6 @@ paint();
 // Interactivity
 window.addEventListener('keydown', e => {
   const movement = e.shiftKey ? 10 : 0.4;
-  console.log(e.key);
   switch (e.key) {
     case 'w':
     case 'W':
@@ -132,28 +132,14 @@ window.addEventListener('keydown', e => {
       c_origin.y = c_origin.y - movement;
       paint();
       break;
-    case 'ArrowLeft':
-      {
-        const angle = Math.PI / 40;
-        const cos = Math.cos(angle);
-        const sin = Math.sin(angle);
-
-        v_origin_viewport.x = v_origin_viewport.x * cos - v_origin_viewport.z * sin;
-        v_origin_viewport.z = v_origin_viewport.x * sin + v_origin_viewport.z * cos;
-      }
-      paint();
-      break;
-    case 'ArrowRight':
-      {
-        const angle = -Math.PI / 40;
-        const cos = Math.cos(angle);
-        const sin = Math.sin(angle);
-
-        v_origin_viewport.x = v_origin_viewport.x * cos - v_origin_viewport.z * sin;
-        v_origin_viewport.z = v_origin_viewport.x * sin + v_origin_viewport.z * cos;
-      }
-      paint();
-      break;
+    // case 'ArrowLeft':
+    //   v_origin_viewport.x = v_origin_viewport.x + 
+    //   v_origin_viewport.z = v_origin_viewport.x * sin + v_origin_viewport.z * cos;
+    //   paint();
+    //   break;
+    // case 'ArrowRight':
+    //   paint();
+    //   break;
     default:
       break;
   }
