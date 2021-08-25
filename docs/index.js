@@ -1,6 +1,6 @@
 // External params
-const newx = Math.floor(window.innerWidth / 4);
-const newy = Math.floor(window.innerHeight / 4);
+const newx = Math.floor(window.innerWidth);
+const newy = Math.floor(window.innerHeight);
 const _resolution = {x: newx, y: newy};
 Canvas.height = newy;
 Canvas.width = newx;
