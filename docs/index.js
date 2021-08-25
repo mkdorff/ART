@@ -1,6 +1,6 @@
 // External params
-const newx = Math.floor(1680 / 8 );
-const newy = Math.floor(913 / 8);
+const newx = Math.floor(window.innerWidth / 4);
+const newy = Math.floor(window.innerHeight / 4);
 const _resolution = {x: newx, y: newy};
 Canvas.height = newy;
 Canvas.width = newx;
@@ -151,8 +151,8 @@ const backtrace = (origin, direction, min_t, max_t, recursionDepth = 0) => {
       r: closest_object.color.r * (1 - closest_object.reflective) + reflectedColor.r * closest_object.reflective,
       g: closest_object.color.g * (1 - closest_object.reflective) + reflectedColor.g * closest_object.reflective,
       b: closest_object.color.b * (1 - closest_object.reflective) + reflectedColor.b * closest_object.reflective,
-      a: closest_object.color.a * lightingScalar
-    }
+      a: closest_object.color.a * lightingScalar,
+    };
   }
 };
 

@@ -2,7 +2,7 @@
   "name": "art",
   "version": "1.0.0",
   "description": "try making art sometimes",
-  "main": "public/index.html",
+  "main": "docs/index.html",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
