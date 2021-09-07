@@ -38,7 +38,7 @@ function interpolate(i0, d0, i1, d1, variableMapping = d_depends_i) {
   if (i0 === i1) return [d0];
 
   const values = [];
-  for (let i = i0, d = d0, delta = (d1 - d0) / (i1 - i0); i < i1; i++, d += delta) {
+  for (let i = i0, d = d0, delta = (d1 - d0) / (i1 - i0); i <= i1; i++, d += delta) {
     values.push({[variableMapping['i']]: i, [variableMapping['d']]: d});
   }
   return values;
@@ -75,13 +75,37 @@ function drawLine(point0, point1, color, renderer = canvasRenderer) {
  * @param {{x: number, y: number}} point2
  * @param {{r: number, g: number, b: number, a: number}} color
  */
-function drawTriangle(point0, point1, point2) {
-  const sortedPoints = sortByY(point0, point1, point2)
-  drawLine(sortedPoints[0], sortedPoints[1], {r: 77, g: 200, b: 55, a: 255})
-  drawLine(sortedPoints[1], sortedPoints[2], {r: 77, g: 200, b: 55, a: 255})
-  drawLine(sortedPoints[2], sortedPoints[0], {r: 77, g: 200, b: 55, a: 255})
+function drawTriangle(point0, point1, point2, options = {}) {
+  options.fill = options.fill === undefined ? true : options.fill;
+  options.frame = options.frame || false;
+
+  const splitSides = (side0, side1) => {
+    const m = Math.floor(side0.length / 2);
+    return side0[m] < side1[m] ? [side0, side1] : [side1, side0];
+  };
+
+  const [p0, p1, p2] = sortByY(point0, point1, point2); // SORT
+
+  const s01 = interpolate(p0.y, p0.x, p1.y, p1.x, x_depends_y); // SPLIT
+  const [duplicate, ...s12] = interpolate(p1.y, p1.x, p2.y, p2.x, x_depends_y);
+  const s20 = interpolate(p0.y, p0.x, p2.y, p2.x, x_depends_y);
+  const s012 = [...s01, ...s12];
+  const [x_left, x_right] = splitSides(s012, s20);
+
+  if (options.fill) {
+    for (let y = p0.y, i = 0; y <= p2.y; y++, i++) {
+      drawLine(x_left[i], x_right[i], {r: 77, g: 200, b: 55, a: 255});
+    }
+  }
+
+  if (options.frame) {
+    drawLine(p0, p1, {r: 177, g: 20, b: 20, a: 255});
+    drawLine(p1, p2, {r: 177, g: 20, b: 20, a: 255});
+    drawLine(p2, p0, {r: 177, g: 20, b: 20, a: 255});
+  }
 }
 
 drawLine({x: -200 + 500, y: 20}, {x: 200 + 500, y: -5}, {r: 77, g: 200, b: 55, a: 255});
 drawLine({x: -50 + 500, y: -200}, {x: 60 + 500, y: 240}, {r: 77, g: 200, b: 55, a: 255});
 drawTriangle({x: -200, y: -250}, {x: 20, y: 250}, {x: 200, y: 50});
+drawTriangle({x: -400, y: -400}, {x: -100, y: -500}, {x: -50, y: -200}, {fill: false, frame: true});
